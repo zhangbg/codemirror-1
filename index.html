@@ -36,31 +36,18 @@
 	</textarea></form>
 
 	<script>
-		CodeMirror.fromTextArea(document.getElementById("code"), {
-			mode : "text/html",
-			lineNumbers : true,
-			profile: 'xhtml' /* define Emmet output profile */
-		});
-
 		requirejs.config({
 			baseUrl: './',
 			paths: {
-				emmet: 'node_modules/emmet/lib',
-				lodash: 'node_modules/emmet/node_modules/lodash/lodash'
+				emmet: 'node_modules/emmet/dist/emmet-snippets',
 			}
 		});
 
-		requirejs(['./plugin', 'emmet/emmet'], function(plugin, emmet) {
-			var loadJSON = function(url) {
-				var xhr = new XMLHttpRequest();
-				xhr.open('GET', url, false);
-				xhr.send(null);
-				return JSON.parse(xhr.responseText);
-			};
-
-			emmet.loadUserData({
-				snippets: loadJSON('node_modules/emmet/lib/snippets.json'),
-				caniuse: loadJSON('node_modules/emmet/lib/caniuse.json')
+		requirejs(['./plugin'], function(plugin) {
+			CodeMirror.fromTextArea(document.getElementById("code"), {
+				mode : "text/html",
+				lineNumbers : true,
+				profile: 'xhtml' /* define Emmet output profile */
 			});
 		});
 	</script>

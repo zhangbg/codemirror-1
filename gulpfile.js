@@ -1,54 +1,66 @@
-var fs = require('fs');
+var path = require('path');
 var gulp = require('gulp');
-var requirejs = require('gulp-requirejs');
 var uglify = require('gulp-uglify');
+var streamify = require('gulp-streamify');
+var browserify = require('browserify');
+var source = require('vinyl-source-stream');
+var through = require('through2');
 var rename = require('gulp-rename');
+var ciu = require('emmet/lib/assets/caniuse');
 
-gulp.task('default', function() {
-	// load JSON data
-	var snippets = fs.readFileSync('./node_modules/emmet/lib/snippets.json', {encoding: 'utf8'});
-	var caniuse = fs.readFileSync('./node_modules/emmet/lib/caniuse.json', {encoding: 'utf8'});
+var DEST = './dist';
 
-	var loadData = 'var emmet = require("emmet/emmet");emmet.loadUserData({' +
-		'snippets: ' + snippets + ',' +
-		'caniuse: ' + caniuse +
-		'});';
+function ciuWrapper() {
+	var buf = new Buffer('');
+	return through(function(chunk, end, next) {
+		buf += chunk;
+		next();
+	}, function(next) {
+		var db = JSON.parse(buf.toString());
+		this.push(JSON.stringify(ciu.optimize(db)));
+		next();
+	});
+}
 
-	return requirejs({
-		baseUrl: './',
-		name: 'vendor/almond',
-		include: ['./plugin'],
-		out: 'emmet.js',
-		paths: {
-			emmet: 'node_modules/emmet/lib',
-			lodash: 'node_modules/emmet/node_modules/lodash/lodash'
-		},
-		wrap: {
-			start: '(function (root, factory) {if (typeof define === "function" && define.amd) {define(factory);} else {root.emmetPlugin = factory();}}(this, function () {',
-			end: ';' + loadData + 
-			'var plugin = require(\'plugin\');plugin.require = require;plugin.define = define;' + 
-			'return plugin;}));'
-		}
+function bundle() {
+	var files = ['./plugin.js'];
+	for (var i = 0, il = arguments.length; i < il; i++) {
+		files.push(arguments[i]);
+	}
+
+	return browserify({
+		entries: files,
+		detectGlobals: false,
+		standalone: 'emmetCodeMirror'
 	})
-	.pipe(gulp.dest('./dist'))
-	.pipe(rename('emmet.min.js'))
-	.pipe(uglify())
-	.pipe(gulp.dest('./dist'));
+	.transform(function(file) {
+		if (path.basename(file) === 'caniuse.json') {
+			return ciuWrapper();
+		}
+		return through();
+	})
+	.bundle()
+}
+
+// Reduced version of Emmet, contains snippets, no Can I Use database 
+gulp.task('snippets', function() {
+	return bundle('./node_modules/emmet/bundles/snippets.js')
+		.pipe(source('emmet-snippets.js'))
+		.pipe(gulp.dest(DEST))
+		.pipe(streamify(uglify()))
+		.pipe(rename('emmet-snippets-min.js'))
+		.pipe(gulp.dest(DEST));
 });
 
-gulp.task('plugin', function() {
-	return requirejs({
-		baseUrl: './',
-		name: 'vendor/almond',
-		include: ['./shim', './plugin'],
-		out: 'emmetPlugin.js',
-		wrap: {
-			start: '(function (root, factory) {if (typeof define === "function" && define.amd) {define(factory);} else {root.emmetPlugin = factory();}}(this, function () {',
-			end: ';return require(\'plugin\');}));'
-		}
-	})
-	.pipe(gulp.dest('./dist'))
-	.pipe(rename('emmetPlugin.min.js'))
-	.pipe(uglify())
-	.pipe(gulp.dest('./dist'));
+// Full version of Emmet
+gulp.task('full', function() {
+	return bundle('./node_modules/emmet/bundles/snippets.js', './node_modules/emmet/bundles/caniuse.js')
+		.pipe(source('emmet.js'))
+		.pipe(gulp.dest(DEST))
+		.pipe(streamify(uglify()))
+		.pipe(rename('emmet-min.js'))
+		.pipe(gulp.dest(DEST));
 });
+
+
+gulp.task('default', ['snippets', 'full']);

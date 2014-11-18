@@ -1,10 +1,23 @@
 /**
  * Emmet Editor interface implementation for CodeMirror.
  * Interface is optimized for multiple cursor usage: authors
- * should run acttion multiple times and update `selectionIndex`
+ * should run action multiple times and update `selectionIndex`
  * property on each iteration.
  */
-define(['emmet/utils/common', 'emmet/utils/action', 'emmet/assets/resources', 'emmet/assets/tabStops'], function(utils, actionUtils, res, tabStops) {
+if (typeof module === 'object' && typeof define !== 'function') {
+	var define = function (factory) {
+		module.exports = factory(require, exports, module);
+	};
+}
+
+define(function(require, exports, module) {
+	var emmet = require('emmet');
+
+	var utils = emmet.utils.common;
+	var actionUtils = emmet.utils.action;
+	var res = emmet.resources;
+	var tabStops = emmet.tabStops;
+
 	/**
 	 * Converts CM’s inner representation of character
 	 * position (line, ch) to character index in text
